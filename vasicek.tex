@@ -1,0 +1,232 @@
+\documentclass[12pt]{article}
+\usepackage{lingmacros}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{tree-dvips}
+\usepackage{hyperref}
+
+\usepackage{geometry}
+ \geometry{
+ a4paper,
+ total={170mm,257mm},
+ left=20mm,
+ top=20mm,
+ }
+
+\newcommand{\dd}{\mathop{}\!\text{d}}
+\newcommand{\qBrownian}[1]{W(#1)}
+\newcommand{\tBrownian}[1]{W^{T}(#1)}
+\newcommand{\Brownian}[2]{W^{#1}(#2)}
+\newcommand{\measure}[1][]{Q^{#1}}
+\newcommand{\qMeasure}{\measure}
+\newcommand{\TMeasure}{\measure[T]}
+\newcommand{\sigmaP}{\sigma_P}
+\newcommand{\sigmaf}{\sigma_f}
+\newcommand{\sigmar}{\sigma_r}
+\newcommand{\piterbargEq}[1]{Piterbarg Eq. #1}
+\begin{document}
+
+\title{Vasicek Model}
+\maketitle
+
+In risk-neutral measure $\qMeasure$, the money market account $\beta(t)$ is the associated
+numeraire and $\qBrownian{t}$ is the adapted Brownian motion process. In $T$-forward measure $\TMeasure$,
+zero coupon bond $P(t, T)$ is the associated numeraire and $\tBrownian{t}$ is the adapted
+Brownian motion process.
+
+\section{Zero Coupoun Bond Price Dynamics}
+In risk-neutral measure, the deflated zero coupoun bond $P_{\beta}(t, T) = P(t, T)/\beta(t)$
+is a martingale with lognormal distribution. The SDE is given as
+\begin{equation}
+    \dd P_\beta(t, T)  = - P_\beta(t, T) \sigma_P(t, T) \dd \qBrownian{t}
+\end{equation}
+where $\sigma_P(t,T)$ is the zero coupon bond volatility.
+
+In risk-neutral measure, zero coupon bond $P(t, T)$ is a geometric brownian motion (GBM)
+process and it is not a martingale.
+(\piterbargEq{4.31})
+\begin{equation}
+    \dd P(t, T)/P(t, T) = r(t) \dd t - \sigma_P(t, T) \dd \qBrownian{t}
+\end{equation}
+
+In the risk-neutral measure, the forward zero coupon bond
+$P(t, T_1, T_2) = P(t, T_2)/P(t, T_1)$ is a GBM process, and
+it is not a martingale(\piterbargEq{4.32}).
+The SDE is given as
+\begin{align}
+    \dd P(t, T_1, T_2)/P(t, T_1, T_2)  
+    &= -\left[\sigmaP(t, T_2) - \sigma(t, T_1)\right] \sigmaP(t, T_1) \dd t \nonumber \\ 
+    &\quad -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \dd \qBrownian{t}
+\end{align}
+In the $T$-forward measure, $P(t, T_1, T_2)$ is a martingale (\piterbargEq{4.33}).
+The SDE is given as
+\begin{align}
+    \label{eq:fwd_bond_sde_T_measure}
+    \dd P(t, T_1, T_2)/P(t, T_1, T_2)  
+    &= -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \dd \tBrownian{t}
+\end{align}
+
+The relation between $\qBrownian{t}$ and $\tBrownian{t}$ is
+\begin{equation}
+    \label{eq:T_measure_relation}
+    \dd \tBrownian{t} = \dd \qBrownian{t} + \sigmaP(t, T) \dd t
+\end{equation}
+
+\section{Forward Rate Dynamics}
+By definition, the instantaneous forward rate is $f(t, T) = \frac{dP(t,T)}{dT}$.
+In the risk-neutral measure, the process for $f(t,T)$ is normally distributed with
+non-zero drift. The SDE is given as
+\begin{align}
+    \dd f(t,T) &= \sigmaf(t,T) \sigmaP(t, T) \dd t + \sigmaf(t,T)
+        \dd \qBrownian{t} \\
+    \dd f(t,T) &= \sigmaf(t,T) \left(\int_t^T \sigmaf(t,u) \dd u \right) \dd t + \sigmaf(t,T)
+        \dd \qBrownian{t}
+\end{align}
+where 
+\begin{align}
+    \sigmaf(t,T) = \frac{\partial\sigmaP(t,T)}{\partial T}
+\end{align}
+    
+In the $T$-forward measure, The process for $f(t,T)$ is a martingale with normal distribution
+and the SDE is given as
+\begin{align}
+    \dd f(t,T) &= \sigmaf(t,T) \dd \tBrownian{t}
+\end{align}
+
+\section{Connection to Short-Rate Model}
+From the instantaneous forward rate $f(t, T)$, the short rate $r(t) = f(t,t)$ is given as
+\begin{equation}
+    \label{eq:short_rate}
+    r(t) = f(t,t) = f(0, t) + \int_0^t \sigmaf(u,t) \int_u^T
+    \sigmaf(u,s) \dd s \dd u + \int_0^t \sigmaf(u, t) \dd \qBrownian{t}
+\end{equation}
+Consider the case where $\sigmaf(t,T)$ is a deterministic function with the special
+choice
+\begin{equation}
+    \label{eq:gh}
+    \sigmaf(t, T) = g(t) h(T)
+\end{equation}
+where $h(u)$ is a positive real function and $g(u)$ can take any sign.
+
+This leads to the general Vasicek model, which gives the SDE of the short rate $r(t)$ as
+\begin{equation}
+    \dd r(t) = \left[\alpha(t) -\kappa(t)r(t)\right] \dd t + \sigmar(t) \dd \qBrownian{t}
+\end{equation}
+Note that the functions $\alpha(t)$, $\kappa(t)$ and $\sigmar(t)$ are not arbitrary.
+They are all linked with Eq.\ref{eq:short_rate} through $g(u)$, $h(u)$ and the initial status,
+which are given as
+\begin{align}
+    \alpha(t) &= \frac{\partial f(0, t)}{\partial t} + \kappa(t) f(0, t) +
+        \int_0^t \sigmaf(u,t)\sigmaf(u,t)\dd u\\
+    h(t) &= e^{-\int_0^t \kappa(u) \dd u} \\
+    g(t) &= e^{\int_0^t \kappa(u) \dd u} \sigmar(t) \\
+    \sigmaf(t, T) &= e^{-\int_t^T \kappa(u) \dd u } \sigmar(t)
+\end{align}
+
+Following \piterbargEq{10.19}, one can derive
+the zero coupoun bond price $P(t,T)$, which is the main and foundamental result from Vasicek model.
+One can follow \piterbargEq{10.19} to derive the following results.
+
+First define the a list of quantities.
+\begin{align}
+    x(t) &= h(t) \int_0^t g(u)^2 \int_u^t h(s) \dd s \dd u + h(t) \int_0^t g(u) \dd \qBrownian{u} \\
+    y(t) &= h(t)^2 \int_0^t g(u)^2 \dd u
+\end{align}
+The forward rate $f(t, T)$ is given as
+\begin{align}
+    f(t,T) &= f(0, T) + \frac{h(T)}{h(t)}
+        \left(
+            x(t) + \frac{y(t)}{h(t)} \int_t^T h(s) \dd s 
+        \right)
+\end{align}
+The zero coupoun bond price $P(t, T)$ is given as
+\begin{align}
+    P(t, T) &= \exp \left( -\int_t^T f(t, u) \dd u \right) \\
+        &=\exp \left( 
+            -\int_t^T \left[ 
+                f(0,u) + \frac{h(u)}{h(t)} \left(
+                    x(t) + \frac{y(t)}{h(t)} \int_t^u h(s) \dd S
+                    \right)
+            \right] \dd u
+        \right) \\
+        &=\frac{P(0,T)}{P(0,t)} \exp \left[
+            -\frac{x(t)}{h(t)} B(t,T) - \frac{y(t)}{h(t)^2} \int_t^T h(u) B(t, u) \dd u 
+        \right] \\
+        \label{eq:vol_term_1}
+        &=\frac{P(0,T)}{P(0,t)} \exp \left[
+            -\int_0^t g(u)^2 B(u, t) \dd u B(t,T) - V(t) \int_t^T h(u) B(t, u) \dd u
+            -S(t) B(t,T)
+        \right] \\
+        \label{eq:vol_term_2}
+        &=\frac{P(0,T)}{P(0,t)} \exp \left[
+            -\int_0^t g(u)^2 B(u, t) \dd u B(t,T) - \frac{1}{2} V(t) B(t, T)^2 
+            -S(t) B(t,T)
+        \right] \\
+        \label{eq:bond_price_start}
+        &=\frac{P(0, T)}{P(0, t)} A(t,T) \exp\left[-B(t,T) S(t)\right]
+\end{align}
+where
+\begin{align}
+    A(t, T) &=\exp \left[
+        -\int_0^t g(u)^2 B(u, t) \dd u B(t,T) - \frac{1}{2} V(t) B(t, T)^2 
+    \right] \\
+    B(t, T) &= \int_t^T h(u) \dd u \\
+    S(t) &= \int_0^t g(u) \dd \qBrownian{u} \\
+    \label{eq:bond_price_end}
+    V(t) &= \int_0^t g(u)^2 \dd u
+\end{align}
+The equality from Eq.\ref{eq:vol_term_1} to Eq.\ref{eq:vol_term_2} is because
+$\dd B(t,u) = h(u) \dd u$. $S(t)$ is called the state variable which introduces
+the randomness. $V(t)$ is the variance of the state variable $S(t)$ up to time $t$.
+
+\textbf{Eqs.\ref{eq:bond_price_start} - \ref{eq:bond_price_end} are the final expressions to be used
+in the implementation for bond price under Vasicek model framework.
+{\color{red}
+Note here, the results are in the risk-neutral measure,
+rather than the $T$-forward measure.
+}
+Using either risk-neutral measure or $T$-forward measure, the volatilities $\sigmaf(t,T)$,
+$\sigmaP(t,T)$ are the foundamental quantities from Vasicek model that are eventually
+expressed from $g(u)$ and $h(u)$ functions and used to derive the bond price $P(t, T)$ and
+forward bond price $P(t, T_1, T_2)$. Therefore, functions $g(u)$ and $h(u)$ are conceptually
+served as the Vasicek model parameters for calibration purpose.}
+Below, the relations for these volatilities are summarized.
+\begin{align}
+    \sigmaf(t, T) &= g(t) h(T) \\
+    \sigmaP(t, T) & = g(t) \int_t^T h(u) \dd u = g(t) B(t, T) \\
+    \sigmaP(t, T_1, T_2) &= \sigmaP(t, T_1) - \sigmaP(t, T_2) = -g(t) B(T_1, T_2)
+\end{align}
+
+\section{Verification of P(t,T) bond price from two approaches}
+As an execise, I am verifying that the expression of $P(T, T') = P(T,T,T')$ derived from
+forward bond SDE (Eq.\ref{eq:fwd_bond_sde_T_measure}) is the same as the one
+directly given by the Vasicek model for $P(T,T')$ from Eq.\ref{eq:vol_term_2}.
+
+Under $T$-forward measure, the forward bond price $P(t, T, T')$
+is a GBM process with SDE shown in Eq.\ref{eq:fwd_bond_sde_T_measure}. Therefore,
+the expression for $P(t, T, T')$ is given as
+\begin{align}
+    P(t, T, T') &= P(0, T, T') \exp\left(
+        \int_0^t -\frac{1}{2} \sigmaP(u, T, T')^2 \dd u +
+            \int_0^t \sigmaP(u, T, T') {\color{red} \dd \tBrownian{u} }
+        \right) \\
+        &= P(0, T, T') \exp\left(
+        \int_0^t -\frac{1}{2} g(u)^2 B(T,T')^2 \dd u -
+            \int_0^t g(u) B(T,T')  \left[ 
+                {\color{red}\dd \qBrownian{u}} + \sigmaP(u, T) \dd t
+                \right]
+        \right) \\
+        &= \frac{P(0, T')}{P(0, T)} \exp \left(
+        -\frac{1}{2} V(t) B(T,T')^2 - S(t) B(T,T') - \int_0^t g(u)^2 B(u, T) \dd u B(T, T')
+        \right)
+\end{align}
+Therefore, let $t = T$ and the $P(T, T')$ is given as
+\begin{align}
+     P(T, T, T')  &= \frac{P(T, T')}{P(T, T)} = P(T, T') \\
+     &= \frac{P(0, T')}{P(0, T)} \exp \left(
+        -\frac{1}{2} V(T) B(T,T')^2 - S(T) B(T,T') - \int_0^T g(u)^2 B(u, T) \dd u B(T, T')
+        \right)
+\end{align}
+This equation is identical to the results from Vasicek model by Eq.\ref{eq:vol_term_2}.
+
+\end{document}
