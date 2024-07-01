@@ -1,9 +1,11 @@
 \documentclass[12pt]{article}
 \usepackage{lingmacros}
-\usepackage{amsmath}
+\usepackage{amsmath,amssymb}
 \usepackage{xcolor}
 \usepackage{tree-dvips}
 \usepackage{hyperref}
+\usepackage{mathtools}
+\usepackage[title]{appendix}
 
 \usepackage{geometry}
  \geometry{
@@ -13,7 +15,9 @@
  top=20mm,
  }
 
+\DeclareMathOperator{\E}{\mathbb{E}}
 \newcommand{\dd}{\mathop{}\!\text{d}}
+\newcommand{\normaldist}{\mathcal{N}}
 \newcommand{\qBrownian}[1]{W(#1)}
 \newcommand{\tBrownian}[1]{W^{T}(#1)}
 \newcommand{\Brownian}[2]{W^{#1}(#2)}
@@ -21,13 +25,17 @@
 \newcommand{\qMeasure}{\measure}
 \newcommand{\TMeasure}{\measure[T]}
 \newcommand{\sigmaP}{\sigma_P}
+\newcommand{\sigmaFP}{\tilde{\sigma}_P}
 \newcommand{\sigmaf}{\sigma_f}
 \newcommand{\sigmar}{\sigma_r}
 \newcommand{\piterbargEq}[1]{Piterbarg Eq. #1}
+\newcommand{\half}{\frac{1}{2}}
 \begin{document}
 
-\title{Vasicek Model}
+\title{Vasicek Model: Thoery and Implementation Guidance}
 \maketitle
+\tableofcontents
+\newpage
 
 In risk-neutral measure $\qMeasure$, the money market account $\beta(t)$ is the associated
 numeraire and $\qBrownian{t}$ is the adapted Brownian motion process. In $T$-forward measure $\TMeasure$,
@@ -43,78 +51,116 @@ is a martingale with lognormal distribution. The SDE is given as
 where $\sigma_P(t,T)$ is the zero coupon bond volatility.
 
 In risk-neutral measure, zero coupon bond $P(t, T)$ is a geometric brownian motion (GBM)
-process and it is not a martingale.
-(\piterbargEq{4.31})
+process and it is not a martingale. One can easily prove this by applying Ito
+(see Appendix \ref{sec:bond_price_sde} and \piterbargEq{4.31}).
 \begin{equation}
     \dd P(t, T)/P(t, T) = r(t) \dd t - \sigma_P(t, T) \dd \qBrownian{t}
 \end{equation}
 
 In the risk-neutral measure, the forward zero coupon bond
 $P(t, T_1, T_2) = P(t, T_2)/P(t, T_1)$ is a GBM process, and
-it is not a martingale(\piterbargEq{4.32}).
-The SDE is given as
+it is not a martingale. The SDE is given as
 \begin{align}
+    \label{eq:fwd_bond_sde_rn_measure}
     \dd P(t, T_1, T_2)/P(t, T_1, T_2)  
-    &= -\left[\sigmaP(t, T_2) - \sigma(t, T_1)\right] \sigmaP(t, T_1) \dd t \nonumber \\ 
+    &= -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \sigmaP(t, T_1) \dd t \nonumber \\ 
     &\quad -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \dd \qBrownian{t}
 \end{align}
-In the $T$-forward measure, $P(t, T_1, T_2)$ is a martingale (\piterbargEq{4.33}).
-The SDE is given as
+See Appendeix \ref{sec:fwd_bond_price_sde} and \piterbargEq{4.32}.
+
+In the $T_1$-forward measure, $P(t, T_1, T_2)=\frac{P(t, T_2)}{P(t, T_1)}$
+by its definition can be easily concluded to be a martingale (\piterbargEq{4.33}).
+Therefore, the SDE under $T_1$-forward measure is given as
 \begin{align}
     \label{eq:fwd_bond_sde_T_measure}
     \dd P(t, T_1, T_2)/P(t, T_1, T_2)  
-    &= -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \dd \tBrownian{t}
+    &= -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \dd W^{T_1}(t)
 \end{align}
 
-The relation between $\qBrownian{t}$ and $\tBrownian{t}$ is
+Based on Eq.~\ref{eq:fwd_bond_sde_rn_measure} and Eq.~\ref{eq:fwd_bond_sde_T_measure},
+the relation between risk neutral measure and $T$-forward measure
+($\qBrownian{t}$ and $\tBrownian{t}$) is
 \begin{equation}
     \label{eq:T_measure_relation}
     \dd \tBrownian{t} = \dd \qBrownian{t} + \sigmaP(t, T) \dd t
 \end{equation}
 
 \section{Forward Rate Dynamics}
-By definition, the instantaneous forward rate is $f(t, T) = \frac{dP(t,T)}{dT}$.
-In the risk-neutral measure, the process for $f(t,T)$ is normally distributed with
-non-zero drift. The SDE is given as
+By definition, the instantaneous forward rate is $f(t, T) = -\frac{\dd \ln P(t,T)}{\dd T}$.
+By Ito's lemma, in risk neutral measure,
 \begin{align}
-    \dd f(t,T) &= \sigmaf(t,T) \sigmaP(t, T) \dd t + \sigmaf(t,T)
-        \dd \qBrownian{t} \\
-    \dd f(t,T) &= \sigmaf(t,T) \left(\int_t^T \sigmaf(t,u) \dd u \right) \dd t + \sigmaf(t,T)
-        \dd \qBrownian{t}
+    \dd \ln P(t, T) = \mathcal{O}(\dd t) - \sigmaP(t, T) \dd \qBrownian{t}
 \end{align}
-where 
+Taking derivatives on both side w.r.t. $T$, we get the SDE for $f(t, T)$ as
 \begin{align}
-    \sigmaf(t,T) = \frac{\partial\sigmaP(t,T)}{\partial T}
+    \dd f(t, T) = \mu_f(t, T) \dd t + \sigmaf(t, T) \dd \qBrownian{t}
 \end{align}
-    
-In the $T$-forward measure, The process for $f(t,T)$ is a martingale with normal distribution
-and the SDE is given as
+with
+\begin{align}
+    \sigmaf(t, T) = \frac{\partial}{\partial T} \sigmaP(t, T)
+\end{align}
+
+To determine the expression of the drift term $\mu_f(t, T)$ under risk neutral measure,
+it would be easier to first consider the case under $T$-forward measure, then change
+the measure back to risk neutral measure to obtain the analytical expression.
+
+We need to use the property that the forward rate $L(t, T, T+\tau)$ is a martingale
+under $(T+\tau)$-forward measure, that is,
+\begin{align}
+    L(t, T, T+\tau) = \E_t^{T+\tau}\left(L(u, T,T+\tau)\right), \quad t \leq u
+\end{align}
+Take the limit of $\tau$ going to zero, we have
+\begin{align}
+    f(t, T) = \E_t^T \left(f(u, T)\right), \quad t \leq u
+\end{align}
+Therefore, the forward rate $f(t, T)$ is a martingale under $T$-forward measure.
+With the volatility of $\sigmaf(t, T)$ is given as above, we can conclude that the SDE
+of $f(t, T)$ under $T$-forward measure must be
 \begin{align}
     \dd f(t,T) &= \sigmaf(t,T) \dd \tBrownian{t}
 \end{align}
-
+Applying change of measure, the process of $f(t, T)$ under risk neutral measure
+is given as
+\begin{align}
+    \dd f(t,T) &= \sigmaf(t,T) \sigmaP(t, T) \dd t + \sigmaf(t,T)
+        \dd \qBrownian{t} \\
+        \label{eq:fwd_rate_sde}
+        &= \sigmaf(t,T) \left(\int_t^T \sigmaf(t,u) \dd u \right) \dd t + \sigmaf(t,T)
+        \dd \qBrownian{t}
+\end{align}
+which indicates
+\begin{equation}
+    \mu_f(t, T) = \sigmaf(t,T) \left(\int_t^T \sigmaf(t,u) \dd u \right) 
+\end{equation}
+ 
 \section{Connection to Short-Rate Model}
-From the instantaneous forward rate $f(t, T)$, the short rate $r(t) = f(t,t)$ is given as
+From the instantaneous forward rate $f(t, T)$,
+the short rate $r(t) = f(t,t)$ can be obatined by integrating on both side
+of the Eq.~\ref{eq:fwd_rate_sde}
 \begin{equation}
     \label{eq:short_rate}
     r(t) = f(t,t) = f(0, t) + \int_0^t \sigmaf(u,t) \int_u^T
     \sigmaf(u,s) \dd s \dd u + \int_0^t \sigmaf(u, t) \dd \qBrownian{t}
 \end{equation}
-Consider the case where $\sigmaf(t,T)$ is a deterministic function with the special
-choice
+
+Consider a special case where $\sigmaf(t,T)$ is a deterministic function
 \begin{equation}
     \label{eq:gh}
     \sigmaf(t, T) = g(t) h(T)
 \end{equation}
-where $h(u)$ is a positive real function and $g(u)$ can take any sign.
-
-This leads to the general Vasicek model, which gives the SDE of the short rate $r(t)$ as
+in which $h(u)$ is a positive real function and $g(u)$ can take any sign.
+I have to emphasize here that Eq.~\ref{eq:gh} is a very important assumption, because
+it will eventually lead to the general Vasicek model that we are familiar with
+(as shown in Piterbarg's book section 4.5.2). The SDE of the short rate $r(t)$
+for the general Vasicek model is
 \begin{equation}
+    \label{eq:vasicek_sde}
     \dd r(t) = \left[\alpha(t) -\kappa(t)r(t)\right] \dd t + \sigmar(t) \dd \qBrownian{t}
 \end{equation}
-Note that the functions $\alpha(t)$, $\kappa(t)$ and $\sigmar(t)$ are not arbitrary.
-They are all linked with Eq.\ref{eq:short_rate} through $g(u)$, $h(u)$ and the initial status,
-which are given as
+Note, because of the connection between Eq.~\ref{eq:gh} and Eq.~\ref{eq:vasicek_sde},
+the functions $\alpha(t)$, $\kappa(t)$ and $\sigmar(t)$ in Vasicek model are not arbitrary.
+They are all linked with Eq.\ref{eq:short_rate} through $g(u)$, $h(u)$ and the initial status.
+The analytical expression are given as below
 \begin{align}
     \alpha(t) &= \frac{\partial f(0, t)}{\partial t} + \kappa(t) f(0, t) +
         \int_0^t \sigmaf(u,t)\sigmaf(u,t)\dd u\\
@@ -123,16 +169,333 @@ which are given as
     \sigmaf(t, T) &= e^{-\int_t^T \kappa(u) \dd u } \sigmar(t)
 \end{align}
 
-Following \piterbargEq{10.19}, one can derive
-the zero coupoun bond price $P(t,T)$, which is the main and foundamental result from Vasicek model.
-One can follow \piterbargEq{10.19} to derive the following results.
+\section{Vasicek Model Application}
+\subsection{Zero Coupoun Bond Price}
+Following \piterbargEq{10.19}, one can derive the zero coupoun bond price $P(t,T)$
+\begin{align}
+    \label{eq:bond_price}
+    P(t, T) &=\frac{P(0, T)}{P(0, t)} A(t,T) \exp\left[-B(t,T) S(t)\right]
+\end{align}
+where
+\begin{align}
+    \label{eq:A}
+    A(t, T) &=\exp \left[
+        -\int_0^t g(u)^2 B(u, t) \dd u B(t,T) - \frac{1}{2} V(t) B(t, T)^2 
+    \right] \\
+    \label{eq:B}
+    B(t, T) &= \int_t^T h(u) \dd u \\
+    \label{eq:S}
+    S(t) &= \int_0^t g(u) \dd \qBrownian{u} \\
+    \label{eq:V}
+    V(t) &= \int_0^t g(u)^2 \dd u
+\end{align}
+$S(t)$ is called the state variable which introduces
+the randomness. $V(t)$ is the variance of the state variable $S(t)$ up to time $t$.
+The detailed derivation of Eq.~\ref{eq:bond_price}
+can be found in Appendix~\ref{sec:vasicek_bond_price_derivation}.
+Details for the implementation of evaluating $A(t, T)$ and $B(t, T)$
+can be found in Appendix~\ref{sec:vasicek_AB_implementation}
 
-First define the a list of quantities.
+The bond price (Eqs.\ref{eq:bond_price} - \ref{eq:V})
+are the most foundamental results from Vasicek model.
+From the bond price $P(t, T)$, one can derive the forward bond price
+$P(t, T_1, T_2)$ and the forward simple rate $L(t, T_1, T_2)$.
+Eqs.\ref{eq:bond_price} - \ref{eq:V} are the final expressions to be used
+in the implementation for bond price under Vasicek model framework.
+{\color{red}
+Note here, the results are in the risk-neutral measure,
+NOT in the $T$-forward measure.}
+If you want to use the bond price in forward measure, remember to change
+the measure first (See Appendix~\ref{sec:bond_price_change_of_measure_verification}
+for related topic and comment).
+
+No matter of using risk-neutral measure or $T$-forward measure,
+the volatilities $\sigmaf(t,T)$, $\sigmaP(t,T)$ do not change and
+they are the foundamental quantities from Vasicek model which are 
+expressed by $g(u)$ and $h(u)$ functions and used to derive the bond price $P(t, T)$ and
+forward bond price $P(t, T_1, T_2)$. Therefore, functions $g(u)$ and $h(u)$ are conceptually
+served as the Vasicek model parameters for calibration purpose.
+Below, the relations for these volatilities are summarized.
+\begin{align}
+    \sigmaf(t, T) &= g(t) h(T) \\
+    \nonumber
+    \sigmaP(t, T) & = g(t) \int_t^T h(u) \dd u = g(t) B(t, T) \\
+    \sigmaFP(t, T_1, T_2) &= \sigmaP(t, T_2) - \sigmaP(t, T_1) = g(t) B(T_1, T_2)
+\end{align}
+
+\subsection{Simple Averaging Caplet Price}
+For simple averaging caplet, there is only one cash flow
+paying at the end of the period, but the interest rate is 
+calculated from the mean averaging of the a sequence of small
+rates. Denote $T_1, T_2, T_3, \cdots, T_N$
+as the dates within the period to give the $N$
+number of small rates $L(t, T_i, T_{i+1})$ for 
+for each of the interest accrual interval $[T_i, T_{i+1}]$.
+Depending on when the rate is fixed, there could be 
+two types of averaging caplet. If all the rates are
+fixed at the begining (meaning all fixed at $T_1$),
+it is the forward looking caplet. If all the rates
+are fixed at the $T_i$ for each interval accordingly,
+it is the backward looking caplet. The approach to
+evalulate the price of these two types of averaging
+caplets are different. The discussion here also applies
+to the similiar cases for compounding caplet with forward or
+backward looking types.
+
+Note the payment is occurred at the end of the period
+$T_N$. It would be easier to price using $T_N$-forward
+measure.
+Under $T_N$-forward measure, the price of the
+backward caplet at current time $t$ is 
+\begin{equation}
+    V^{b}(t) = P(t, T_N) \E^{T_N} \left[
+        \frac{1}{N} \sum_{i}^{N} L(T_i, T_i, T_{i+1}) - K
+    \right]^+
+\end{equation}
+The price of the forward caplet at current time $t$ is 
+\begin{equation}
+    V^{f}(t) = P(t, T_N) \E^{T_N} \left[
+        \frac{1}{N} \sum_{i}^{N} L(T_1, T_i, T_{i+1}) - K
+    \right]^+
+\end{equation}
+{\color{red} In both cases, we need the evoluation of the the forward
+simple rate $L$ under $T_N$-forward measure.} The only difference is what time the forward
+rate is evulated at. Below we take the backward case as an 
+example, and similiar derviation can be easily applied to the
+forward case.
+
+For backward caplet, each small rate $L(T_i, T_i, T_{i+1})$ by its definition is
+connected with the forward band price $P(T_i, T_i, T_{i+1})$
+at time $T_i$ accordingly,
+\begin{align}
+    L(T_i, T_i, T_{i+1}) = \left(
+        \frac{1}{P(T_i, T_i, T_{i+1})} - 1
+    \right) \frac{1}{\tau_i}
+\end{align}
+Therefore, we need to simulate the evolution of the
+forwad bond $P(t, T_i, T_{i+1})$ under $T_N$-forward
+measure. Apply changing of measure, we have
+\begin{align}
+   \dd W^{T_1}(t) &= \dd W(t) + \sigmaP(t, T_1) \dd t \\
+   \dd W^{T_2}(t) &= \dd W(t) + \sigmaP(t, T_2) \dd t \\
+   \dd W^{T_1}(t) &= \dd W^{T_2}(t) - \left[ \sigmaP(t, T_2) - \sigmaP(t, T_1) \right] \dd t\\
+    &= \dd W^{T_2} - \sigmaFP(t, T_1, T_2) \dd t
+\end{align}
+Switch from $T_1$-forwad measure to $T_N$-forward measure,
+the SDE of $P(t, T_1, T_2)$ is given as
+\begin{align}
+    \frac{\dd P(t, T_1, T_2)}{P(t, T_1, T_2)}
+        &= -\sigmaFP(t, T_1, T_2) \dd W^{T_1} \\
+        &= -\sigmaFP(t, T_1, T_2) \sigmaFP(t, T_1, T_N) \dd t - \sigmaFP(t, T_1, T_2) \dd W^{T_N}
+\end{align}
+This is a GBM Process and the solution of $P(t, T_1, T_2)$
+under $T_N$-forwad measure is given as
+\begin{align}
+    P(t, T_1, T_2) &= \frac{P(0, T_2)}{P(0, T_1)}
+    \exp \left\{
+        \int_0^t \left[
+            \sigmaFP(s, T_1, T-2) \sigmaFP(s, T_1, T_N)
+            - \half \sigmaFP(s, T_1, T_2)^2
+        \right] \dd s \right. \\
+        &\left. \quad
+            - \int_0^t \sigmaFP(s, T_1, T_2) \dd W^{T_N}(s)
+    \right\} \\
+    &=\frac{P(0, T_2)}{P(0, T_1)} \exp \left[Y(t)\right]
+\end{align}
+where $Y(t)$ is a random variable within the big bracket,
+and it is a quantity under $T_N$-forward measure,
+\begin{align}
+    Y(t) &=
+         \int_0^t \left[
+            \sigmaFP(s, T_1, T-2) \sigmaFP(s, T_1, T_N)
+            - \half \sigmaFP(s, T_1, T_2)^2
+        \right] \dd s 
+            - \int_0^t \sigmaFP(s, T_1, T_2) \dd W^{T_N}(s)
+\end{align}
+with drift $\mu_{Y}(t)$ and variance $\sigma_{Y}(t)$.
+By some arrangement, we can derive the drfit and variance
+as below,
+\begin{align}
+    \nonumber
+    \mu_{Y}(t) &=
+        \int_0^t \left[
+            \sigmaFP(s, T_1, T_2) \sigmaFP(s, T_1, T_N)
+            - \half \sigmaFP(s, T_1, T_2)^2
+        \right] \dd s \\
+    \nonumber
+    &= \int_0^t g(s)^2 \dd s \cdot B(T_1, T_2) B(T_1, T_N)
+    - \half \int_0^t g(s)^2 \dd s \cdot B(T_1, T_2)^2 \\
+    \nonumber
+    &= V(t) B(T_1, T_2) B(T_1, T_N) - \half V(t) B(T_1, T_2)^2 \\
+    \nonumber
+    &= V(t) B(T_1, T_2) \left[B(T_1, T_N) - \half B(T_1, T_2)\right]\\
+    \nonumber
+    &= V(t) B(T_1, T_2) \left( B(T_1, T_N) - \half
+        \left[ B(T_1, T_N) - B(T_2, T_N) \right] \right) \\
+    &= \half V(t) B(T_1, T_2) \left[B(T_1, T_N) + B(T_2, T_N) \right] \\
+    \sigma_{Y}(t) &=\sqrt{V(t)} B(T_1, T_2) \\
+    V(t) &= \int_0^t g(s)^2 \dd s
+\end{align}
+Now we can express each small rate $L(T_i, T_i, T_{i+1})$
+as the function of the random variable $Y(T_i)$ as
+\begin{align}
+    \nonumber
+    L(T_i, T_i, T_{i+1}) &= \left(
+        \frac{1}{P(T_i, T_i, T_{i+1})} - 1
+    \right) \frac{1}{\tau_i} \\
+    &= \left[
+        \frac{P(0, T_i)}{P(0, T_{i+1})} \exp(-Y(T_i)) - 1
+    \right] \frac{1}{\tau_i} \\
+    &= h\left(Y(T_i)\right)
+\end{align}
+where $Y(T_i) \sim \normaldist\left(\mu_Y(T_i), \sigma_{Y}(T_i)\right)$
+under $T_N$-forward measure. For short notation,
+we denote $L$ is a function of $Y$, $L = h(Y)$.
+
+To calculate the expectation of $L(T_i, T_i, T_{i+1})$
+under $T_N$-forward measure, we can use gauss-hermit quadrature.
+If $Y\sim \normaldist(\mu, \sigma)$, the expectation can be
+approximate as
+\begin{align}
+    \E^{T_N} \left[h(Y)\right] 
+        &= \int_{-\infty}^{+\infty}
+            \frac{1}{\sigma \sqrt{2\pi}} \exp\left(
+                -\frac{(y-\mu)^2}{2\sigma^2}
+            \right) h(y) \dd y \\
+        &= \frac{1}{\sqrt{\pi}} \int_{-\infty}^{+\infty}
+            \exp(-x^2) h(\sqrt{2} \sigma x + \mu) \dd x \\
+        &\approx \sum_i^n \frac{1}{\sqrt{\pi}} \omega_{i} h(\sqrt{2}\sigma x_i + \mu)
+\end{align}
+where $X\sim \normaldist(0,1)$, $\omega_{i}$ is the gauss-hermit
+coefficients, and $Y$ can be expressed from $X$ as
+$ Y = \sqrt{2}\sigma X + \mu$.
+
+Therefore, in the case of forward rate $L(T_i, T_i, T_{i+1})$,
+we have the random variable $-Y(T_i)\sim \normaldist(-\mu_Y(T_i),
+\sigma_Y(T_i))$. The random forward rate is expressed as
+\begin{align}
+    \nonumber
+   L(T_i, T_i, T_{i+1}; X) 
+   &= \left[
+    \frac{P(0, T_i)}{P(0, T_{i+1})} \exp\left[-Y(T_i)\right] 
+    - 1
+   \right]   \frac{1}{\tau_i} \\
+   &= \left[
+    \frac{P(0, T_i)}{P(0, T_{i+1})} \exp
+    \left[\sigma_Y(T_i) \sqrt{2} X - \mu_{Y}(T_i)\right] 
+    - 1
+   \right]   \frac{1}{\tau_i} \\
+\end{align}
+
+To evaluate the caplet price, we can use numerical
+integration (like gauss-hermit quadrature)
+to calculate the expectation. Note the options payoff
+function is non-linear and there are multiple simple rates
+used in the expectation. This leads the exact expectation
+evulation to be a multi-dimensional integration. However,
+in practice, we usually approximate the multi-dimensional
+integraion into a single dimensional integraion.
+
+\newpage
+\appendix
+\begin{appendices}
+\section{Detailed derivations}
+\subsection{Bond price SDE} \label{sec:bond_price_sde}
+\begin{equation}
+    \dd P(t, T)/P(t, T) = r(t) \dd t - \sigma_P(t, T) \dd \qBrownian{t}
+\end{equation}
+Proof:
+\begin{align}
+    P(t, T) &= P_\beta(t, T) \cdot \beta(t) \\
+    \nonumber
+    \dd P(t, T) &= \dd P_\beta \cdot \beta + P_\beta \dd \beta
+        + \dd P_\beta \cdot \dd \beta \\
+        \nonumber
+        &= -\sigmaP P_\beta \beta \dd W + P_\beta r\beta \dd t \\
+        &= -\sigmaP P \dd W + P r \dd t
+\end{align}
+
+\subsection{Forward bond price SDE} \label{sec:fwd_bond_price_sde}
+\begin{align}
+    \frac{\dd P(t, T_1, T_2)}{P(t, T_1, T_2)}
+    &= -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \sigmaP(t, T_1) \dd t 
+    -\left[\sigmaP(t, T_2) - \sigmaP(t, T_1)\right] \dd \qBrownian{t}
+\end{align}
+There are two ways to prove the above relation.
+
+\subsubsection*{Approach 1: using GBM property}
+$P(t, T)$ is a GBM process.
+\begin{equation}
+    P(t, T) = P(0, T) \exp \left[
+        (r(t) - \half \sigmaP^2)t - \sigmaP W(t)
+    \right]
+\end{equation}
+Therefore, we can write down the expression for the forward bond price.
+\begin{align}
+    \nonumber
+    \tilde{P} &= \frac{P_2}{P_1} \\
+    \nonumber
+        &=\frac{P(0, T_2)}{P(0, T_1)} \exp\left[
+            -\half (\sigma_2^2 - \sigma_1^2) t - (\sigma_2 - \sigma_1) W
+        \right] \\
+        &=\tilde{P}(0, T_1, T_2) \exp \left[
+            \left(
+                -(\sigma_2 - \sigma_1) \sigma_1 - \half (\sigma_2 - \sigma_1)^2
+            \right) t - (\sigma_2 - \sigma_1) W
+        \right]
+\end{align}
+From the above equation, we can back out the SDE for the GBM process as
+\begin{equation}
+    \frac{\dd \tilde{P}}{\tilde{P}} = -(\sigma_2 - \sigma_1) \sigma_1 \dd t 
+        - (\sigma_2 - \sigma_1) \dd W(t)
+\end{equation}
+
+\subsubsection*{Approach 2: using Ito}
+\begin{align}
+    \tilde{P} &= \frac{P_2}{P_1} \\
+    \dd \tilde{P}  &= \dd P_2 \frac{1}{P_1} + P_2 \dd \frac{1}{P_1} + \dd P_2 \dd \frac{1}{P_1} \\
+    \dd P &= P (r \dd t - \sigma \dd W) \\
+    \nonumber
+    \dd \frac{1}{P} &= - \frac{1}{P^2} \dd P + \frac{1}{P^3} (\dd P)^2 \\
+        \nonumber
+        &= -\frac{1}{P} (r \dd t - \sigma \dd W) + \frac{\sigma^2}{P} \dd t\\ 
+        &= \frac{1}{P} \left[
+            (\sigma^2 - r) \dd t + \sigma \dd W
+        \right]
+\end{align}
+Substitute everything into the definition, we can get 
+\begin{align}
+    \nonumber
+    \dd \tilde{P} &= \frac{P_2}{P_1}(r \dd t - \sigma_2 \dd W) +
+        \frac{P_2}{P_1} \left[
+            (\sigma_1^2 - r ) \dd t + \sigma_1\dd W
+        \right] - \frac{P_2}{P_1} \sigma_1 \sigma_2 \dd t \\
+        \nonumber
+        &= \frac{P_2}{P_1} \left[
+            (\sigma_1 - \sigma_2) \sigma_1 \dd t - (\sigma_2 - \sigma_1) \dd W
+        \right] \\
+        &= \tilde{P} \left[
+            (\sigma_1 - \sigma_2) \sigma_1 \dd t - (\sigma_2 - \sigma_1) \dd W
+        \right]
+\end{align}
+
+\label{sec:vasicek_bond_price_derivation}
+\subsection{Vasicek model bond price analytical expression derivation}
+Use Eq.~\ref{eq:gh} and integrate Eq.~\ref{eq:fwd_rate_sde}, the forward rate
+$f(t, T)$ is
+\begin{align}
+    \nonumber
+    f(t, T) &= f(0, T) + \int_0^t g(u) h(T) \int_u^T g(u) h(s) \dd s \dd u
+        + \int_0^t g(u) h(T) \dd W(u) \\
+        &= f(0, T) + h(T) \int_0^t g(u)^2 \int_u^T  h(s) \dd s \dd u
+        + h(T)\int_0^t g(u)  \dd W(u) 
+\end{align}
+Define the following auxiliary quantities
 \begin{align}
     x(t) &= h(t) \int_0^t g(u)^2 \int_u^t h(s) \dd s \dd u + h(t) \int_0^t g(u) \dd \qBrownian{u} \\
     y(t) &= h(t)^2 \int_0^t g(u)^2 \dd u
 \end{align}
-The forward rate $f(t, T)$ is given as
+The forward rate $f(t, T)$ can be rewritten as
 \begin{align}
     f(t,T) &= f(0, T) + \frac{h(T)}{h(t)}
         \left(
@@ -145,7 +508,7 @@ The zero coupoun bond price $P(t, T)$ is given as
         &=\exp \left( 
             -\int_t^T \left[ 
                 f(0,u) + \frac{h(u)}{h(t)} \left(
-                    x(t) + \frac{y(t)}{h(t)} \int_t^u h(s) \dd S
+                    x(t) + \frac{y(t)}{h(t)} \int_t^u h(s) \dd s
                     \right)
             \right] \dd u
         \right) \\
@@ -165,46 +528,21 @@ The zero coupoun bond price $P(t, T)$ is given as
         \label{eq:bond_price_start}
         &=\frac{P(0, T)}{P(0, t)} A(t,T) \exp\left[-B(t,T) S(t)\right]
 \end{align}
-where
-\begin{align}
-    A(t, T) &=\exp \left[
-        -\int_0^t g(u)^2 B(u, t) \dd u B(t,T) - \frac{1}{2} V(t) B(t, T)^2 
-    \right] \\
-    B(t, T) &= \int_t^T h(u) \dd u \\
-    S(t) &= \int_0^t g(u) \dd \qBrownian{u} \\
-    \label{eq:bond_price_end}
-    V(t) &= \int_0^t g(u)^2 \dd u
-\end{align}
 The equality from Eq.\ref{eq:vol_term_1} to Eq.\ref{eq:vol_term_2} is because
-$\dd B(t,u) = h(u) \dd u$. $S(t)$ is called the state variable which introduces
-the randomness. $V(t)$ is the variance of the state variable $S(t)$ up to time $t$.
+$\dd B(t,u) = h(u) \dd u$. 
 
-\textbf{Eqs.\ref{eq:bond_price_start} - \ref{eq:bond_price_end} are the final expressions to be used
-in the implementation for bond price under Vasicek model framework.
-{\color{red}
-Note here, the results are in the risk-neutral measure,
-rather than the $T$-forward measure.
-}
-Using either risk-neutral measure or $T$-forward measure, the volatilities $\sigmaf(t,T)$,
-$\sigmaP(t,T)$ are the foundamental quantities from Vasicek model that are eventually
-expressed from $g(u)$ and $h(u)$ functions and used to derive the bond price $P(t, T)$ and
-forward bond price $P(t, T_1, T_2)$. Therefore, functions $g(u)$ and $h(u)$ are conceptually
-served as the Vasicek model parameters for calibration purpose.}
-Below, the relations for these volatilities are summarized.
-\begin{align}
-    \sigmaf(t, T) &= g(t) h(T) \\
-    \sigmaP(t, T) & = g(t) \int_t^T h(u) \dd u = g(t) B(t, T) \\
-    \sigmaP(t, T_1, T_2) &= \sigmaP(t, T_1) - \sigmaP(t, T_2) = -g(t) B(T_1, T_2)
-\end{align}
+\label{sec:bond_price_change_of_measure_verification}
+\subsection{Verification of P(T,T') bond price from two approaches}
+For bond price $P(T, T') = P(T, T, T') = \frac{P(T, T')}{P(T, T)}$, there are two
+ways to calculate its value. One is directly from Vasicek model by
+using Eq.~\ref{eq:bond_price}, and the other is from the forward bond price
+$\left. P(t, T, T') \right \vert_{t=T}$ by using the forward bond price is a GBM process
+(Eq.~\ref{eq:fwd_bond_sde_rn_measure} and ~\ref{eq:fwd_bond_sde_T_measure}).
+As an execise, I am verifying the two approaches
+agree with each other.
 
-\section{Verification of P(t,T) bond price from two approaches}
-As an execise, I am verifying that the expression of $P(T, T') = P(T,T,T')$ derived from
-forward bond SDE (Eq.\ref{eq:fwd_bond_sde_T_measure}) is the same as the one
-directly given by the Vasicek model for $P(T,T')$ from Eq.\ref{eq:vol_term_2}.
-
-Under $T$-forward measure, the forward bond price $P(t, T, T')$
-is a GBM process with SDE shown in Eq.\ref{eq:fwd_bond_sde_T_measure}. Therefore,
-the expression for $P(t, T, T')$ is given as
+Based on the GBM process of forwad bond (Eq.~\ref{eq:fwd_bond_sde_rn_measure} and
+~\ref{eq:fwd_bond_sde_T_measure}), the expression for $P(t, T, T')$ is given as
 \begin{align}
     P(t, T, T') &= P(0, T, T') \exp\left(
         \int_0^t -\frac{1}{2} \sigmaP(u, T, T')^2 \dd u +
@@ -220,13 +558,96 @@ the expression for $P(t, T, T')$ is given as
         -\frac{1}{2} V(t) B(T,T')^2 - S(t) B(T,T') - \int_0^t g(u)^2 B(u, T) \dd u B(T, T')
         \right)
 \end{align}
-Therefore, let $t = T$ and the $P(T, T')$ is given as
+Evaulate the forwad bond at time $t = T$, the $P(T, T')$ is given as
 \begin{align}
      P(T, T, T')  &= \frac{P(T, T')}{P(T, T)} = P(T, T') \\
      &= \frac{P(0, T')}{P(0, T)} \exp \left(
         -\frac{1}{2} V(T) B(T,T')^2 - S(T) B(T,T') - \int_0^T g(u)^2 B(u, T) \dd u B(T, T')
         \right)
 \end{align}
-This equation is identical to the results from Vasicek model by Eq.\ref{eq:vol_term_2}.
+This equation is identical to the results from Vasicek model by Eq.\ref{eq:bond_price}.
+
+\label{sec:vasicek_AB_implementation}
+\subsection{Implementation of Vasicek A and B term for PWC}
+In the case of $g(u)$ and $h(u)$ being peice-wise constant (PWC) function,
+define
+\begin{align}
+    g(u) =
+    \begin{cases}
+        g_1, & t_0 < u < t_1 \\
+        g_2, & t_1 < u < t_2 \\
+        \vdots & \\
+        g_N, & t_{N-1} < u < t_N \\
+    \end{cases}
+\end{align}
+Similiar definition for $h(u)$ function.
+Let $t_i < t < t_{i+1}$, define
+\begin{align}
+    \Delta t_i &\coloneqq t - t_i \\
+    \delta t_i &\coloneqq t_i - t_{i-1} \\
+    G_i &\coloneqq \int_0^{t_i} g(u)^2 \dd u = \sum_0^{i-1} g_k^2 (t_{k+1} - t_k) \\
+    H_i &\coloneqq \int_0^{t_i} h(u) \dd u = \sum_0^{i-1} h_k^2 (t_{k+1} - t_k) \\
+    \Delta G_i &\coloneqq \int_{t_i}^t g(u)^2 \dd u = g_i^2 \Delta t_i \\
+    \Delta H_i &\coloneqq \int_{t_i}^t h(u) \dd u = h_i^2 \Delta t_i
+\end{align}
+
+\subsubsection{Expression of A(t, T)}
+\begin{align}
+    \label{Aeq:A}
+    A(t, T) = \exp \left[
+        - \int_0^t g(u)^2 B(u, t) \dd u B(t, T) - \half V(t) B(t, T)^2
+    \right]
+\end{align}
+
+We derive the first term in Eq.~\ref{Aeq:A} here. The second term is trivial to
+implement. Rewrite the integration on $h(u)$ into two parts,
+\begin{align}
+    \nonumber
+    \int_0^t g(u)^2 B(u, t) \dd u &= \int_0^t g(u)^2 \int_u^t h(s) \dd s \dd u \\
+        \nonumber
+        &= \int_0^t g(u)^2 \int_0^t h(s) \dd s \dd u 
+            - \int_0^t g(u)^2 \int_0^u h(s) \dd s \dd u \\
+        \label{Aeq:A_pwc_2nd_term}
+        &=(G_i + \Delta G_i) (H_i + \Delta H_i) 
+            - \int_0^t g(u)^2 \int_0^u h(s) \dd s \dd u 
+\end{align}
+Next, we evaluate the second term in Eq.~\ref{Aeq:A_pwc_2nd_term}. Break the
+integral into two parts,
+\begin{align}
+    \nonumber
+    \int_0^t g(u)^2 \int_0^u h(s) \dd s \dd u  &= 
+        \int_0^{t_i} g(u)^2 \int_0^u h(s) \dd s \dd u + 
+        \int_{t_i}^t g(u)^2 \int_0^u h(s) \dd s \dd u \\
+        \nonumber
+        &= M_i + \int_{t_i}^t g_i^2 \left[
+                H_i + h_i( u - t_i)
+            \right] \dd u \\
+        \nonumber
+        &= M_i +
+        g_i^2 H_i \Delta t_i + \half g_i^2 h_i (t^2 - t_i^2)
+        - g_i^2 h_i t_i \Delta t_i \\
+        \nonumber
+        &=M_i + g_i^2 H_i \Delta t_i + \half g_i^2 h_i \Delta t_i^2 \\
+        &= M_i + H_i \Delta G_i + \half \Delta H_i \Delta G_i
+\end{align}
+where
+\begin{align}
+    M_i \coloneqq \int_0^{t_i} g(u)^2 \int_0^u h(s) \dd s \dd u 
+\end{align}
+Substitute to evaluate $A(t, T)$, we have
+\begin{align}
+    A(t, T) &= (G_i H_i - M_i) + G_i \Delta H_i + \half \Delta H_i \Delta G_i, \quad t_i < t < t_{i+1}
+\end{align}
+Note $G_i$, $H_i$, and $M_i$ are quantities with integration up to the integer point (no fractions). 
+
+\subsubsection{Expression of B(t, T)}
+\begin{align}
+    B(t, T) &= B(0, T) - B(0, t)\\
+    B(0, t) &= \int_0^t h(u) \dd u = H_i + h_i\Delta t_i, \quad t_i < t < t_{i+1}
+\end{align}
+
+
+\end{appendices}
+
 
 \end{document}
